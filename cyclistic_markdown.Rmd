@@ -1,0 +1,355 @@
+---
+title: "Cyclistic Bike-Share Analysis"
+author: "Nanda Akhirdianto"
+date: "11/18/2022"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+### Overview
+
+Through **Google Professional Data Analytics Certificate** course, we students are offered to do project (Capstone Project) by **Coursera** as result for finalizing the course.
+
+The purpose of this project is working on a case study to seeking and analyzing any trends and turn into actionable insights from fictional company called **Cyclistic**, and the goal is to convert casual riders into annual members.
+
+### Introduction
+
+Cyclistic a bike-share company, which was found in 2016 has a bikes fleet of **5,824** units scattered around **692** stations across Chicago. Cyclistic sets itself as company that has flexibility and accessibility. Speaking of accessibility, this company provides variety of bikes, such as _reclining bikes_, _hand tricycles_ and _cargo bikes_, making bike-share more inclusive to people with dissabilities and for those who can't use a standard two-wheeled bike. Because they're identified that The majority of the users are using traditional bikes and around **8%** users using non-traditional two-wheeled bicycles.
+
+Also, concerning for utilization the company see that most bike-share users utilize this facility for leisure and around **30%** of them use for commuting to work on their daily basis. That's why this company also provides their flexibility, as part of their marketing as well, which focus on developing awareness and appealing to wide-ranging consumer segments by offering flexible pricing plans such as _single-ride passes_, _full-day passes_ and _annual membership_.
+
+Seeing that trends, this company see that **annual members** are more profitable than **casual riders**, and they believed that the company's future success depended on maximizing the number of annual memberships. The company aimed to convert casual rider into annual member. That's why they need **Marketing Department** provides analysis and startegic plans.
+
+### Business Task
+
+As junior data analyst, I have been tasked to dig deep down into the data to seek any differ between casual and annual member when using bicycles, why riders/users would buy membership and how digital media can help marketing tactics to influence casual riders to become annual members.
+
+Aside from those three questions, this whole process will lead to generate a report with following results:
+
+* Clear statement of business duties
+* Description of all data sources used
+* Documentation of the cleaning or data manipulation stage
+* Summary of analysis
+* Supports main visualization and findings
+* Top three recommendations based on analysis
+
+### Stakeholders and Team
+
+1. Lily Moreno: Director of Marketing
+2. Marketing Analytics Team: Team who responsible for collecting, analyzing and reporting data.
+3. Cyclistic Executive Team: Notoriously detailed-oriented executive team who decide whether to approve the recommendation.
+
+
+### Ask
+
+1. How do annual members and casual riders use Cyclistic bikes differenly?
+2. Why would casual riders buy Cyclistic annual memberships?
+3. How digital media can help marketing tactics to influence casual riders to become annual members?
+
+
+### Prepare
+
+This phase, we need to import the data. I choosed using R for throughout this process, since the data is too large to handle using spreadsheet tools. The dataset was acquired from this [link](https://divvy-tripdata.s3.amazonaws.com/index.html). The availability of data has been made by Motivate International Inc under this [license](https://www.divvybikes.com/data-license-agreement).
+
+The last 12 months downloaded which aimed to narrowing down and be more specific in as assigned
+
+To make it the whole process smooth, we need to install packages and load some libraries to support this phase. First, install **geosphere**, this package used to compute various aspects of distance, duratios, area, etc for geographic coordinates (R Documentation)
+
+Load some libraries
+```{r}
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(geosphere)
+library(data.table)
+```
+
+Since dataset has been downloaded and stored into local storage, we need to locate the directory, before import the data. I create **file_location** as a value that refer to directory. First, identify the file location's
+```{r}
+loc_file <- file.path("Documents/r_work/caseStudy_1", fsep = "/")
+```
+
+Then assigned **folder_file** as value of collected files and **list.files** function will produce character vector of the names of files in the name directory.
+```{r}
+folder_file <- list.files(loc_file, full.names = TRUE, pattern = "*.csv")
+```
+
+Now it's time to import the 12 csv files (collected data) into **original_df** dataframe. Combine the last twelve months data (from October 2021 to September 2022).
+```{r}
+moded_df <- map_df(folder_file, ~read_csv(.))
+
+head(moded_df)
+```
+
+The imported sample size contained **5,828,235** rows and **13* columns
+
+### Process
+
+Now we conduct data cleaning and manipulation. Add some columns for further analysis.
+```{r eval=FALSE}
+data_df <- moded_df %>%
+  mutate(
+    ride_duration = as.numeric(difftime(ended_at, started_at, units = "mins")),
+    ride_distance = distHaversine(cbind(start_lng, start_lat), cbind(end_lng, end_lat)),
+    ride_year = year(started_at),
+    day_of_week = weekdays(started_at),
+    hour_of_day = hour(started_at)
+  )
+```
+```{r eval=FALSE}
+str(data_df)
+```
+Now data contained **5,828,235** and *19* columns. The next step is clean the data, tend to remove condition that **not start at station** and **end at station**, also eliminate data that has **<= 0** value for both duration and distance.
+```{r eval=FALSE}
+cleanData_df <- data_df %>%
+  filter(!is.na(start_station_name)) %>%
+  filter(!is.na(end_station_name)) %>%
+  filter(ride_duration > 0) %>%
+  filter(ride_distance > 0)
+```
+```{r eval=FALSE}
+head(cleanData_df)
+```
+
+Remove duplicate data
+```{r eval=FALSE}
+cleanData_df %>% distinct()
+```
+```{r eval=FALSE}
+cyclistic_df <- cleanData_df
+```
+```{r eval=FALSE}
+head(cyclistic_df)
+```
+
+```{r eval=FALSE}
+sum(is.na(cyclistic_df)) # Taking moment if there is still missing data
+summary(is.na(cyclistic_df))
+```
+
+### Analyze
+
+In this phase we started to analyze by conducting descriptive analysis to looking the trends and finding patterns to answer business questions. Identify total on each member cathegory.
+
+```{r eval=FALSE}
+member_df <- cyclistic_df %>%
+  select(member_casual) %>%
+  group_by(member_casual) %>%
+  count() %>%
+  arrange()
+```
+```{r eval=FALSE}
+head(member_df)
+```
+
+We have 1,677,058 casual rider and 2,587,853 annual member in this dataset. plotting into pie chart
+```{r}
+slices <- c(1677058, 2587853)
+lbls <- c("casual", "members")
+colors <- c("#99D1FF", "#393B8F")
+pie(slices, labels = lbls, main = "Total Users", col = colors)
+legend("bottomright", lbls, fill = colors)
+```
+
+Identify which day has more customer on each cathegory
+```{r eval=FALSE}
+day_df <- cyclistic_df %>%
+  select(day_of_week) %>%
+  group_by(day_of_week) %>%
+  count() %>%
+  arrange()
+```
+```{r eval=FALSE}
+head(day_df)
+```
+
+```{r eval=FALSE}
+ggplot(data = cyclistic_df) +
+  geom_bar(mapping = aes(x=day_of_week, fill = day_of_week)) +
+  facet_wrap(~member_casual) +
+  labs(title = "Cyclstic Data per Day", x="Customer Type", y="Count")
+```
+
+Create month column to represent month on each dataset.
+```{r eval=FALSE}
+data_months_df <- cyclistic_df %>% mutate(Months=
+                                            case_when(
+                                              month(cyclistic_df$started_at)==01 ~ "Jan",
+                                              month(cyclistic_df$started_at)==02 ~ "Feb",
+                                              month(cyclistic_df$started_at)==03 ~ "Mar",
+                                              month(cyclistic_df$started_at)==04 ~ "Apr",
+                                              month(cyclistic_df$started_at)==05 ~ "May",
+                                              month(cyclistic_df$started_at)==06 ~ "Jun",
+                                              month(cyclistic_df$started_at)==07 ~ "Jul",
+                                              month(cyclistic_df$started_at)==08 ~ "Aug",
+                                              month(cyclistic_df$started_at)==09 ~ "Sep",
+                                              month(cyclistic_df$started_at)==10 ~ "Oct",
+                                              month(cyclistic_df$started_at)==11 ~ "Nov",
+                                              month(cyclistic_df$started_at)==12 ~ "Dec"
+                                            ))
+
+```
+
+Identify which month has more customer on each cathegory.
+```{r eval=FALSE}
+month_df <- data_months_df %>%
+  select(Months) %>%
+  group_by(Months) %>%
+  count() %>%
+  arrange()
+```
+```{r eval=FALSE}
+head(month_df)
+```
+
+```{r eval=FALSE}
+ggplot(data = data_months_df) +
+  geom_bar(mapping = aes(x=Months, fill=Months)) +
+  facet_wrap(~member_casual) +
+  labs(title = "Cyclistic Data per Month", x="Customer Type", y="Count")
+```
+
+Now identify the trends in 4 seasons from 12 months, by separating the 12 months into respective season.
+```{r eval=FALSE}
+season_df <- data_months_df %>% mutate(Seasons =
+                                                  case_when(
+                                                    month(data_months_df$started_at)==10|
+                                                      month(data_months_df$started_at)==11 ~ "Autumn",
+                                                    month(data_months_df$started_at)==12|
+                                                      month(data_months_df$started_at)==01|
+                                                      month(data_months_df$started_at)==02 ~ "Winter",
+                                                    month(data_months_df$started_at)==03|
+                                                      month(data_months_df$started_at)==04|
+                                                      month(data_months_df$started_at)==05 ~ "Spring",
+                                                    month(data_months_df$started_at)==06|
+                                                      month(data_months_df$started_at)==07|
+                                                      month(data_months_df$started_at)==08 ~ "Summer",
+                                                    month(data_months_df$started_at)==09 ~ "Autumn"
+                                                  ))
+```
+```{r eval=FALSE}
+colnames(season_df)
+```
+
+```{r eval=FALSE}
+ggplot(data = season_df) +
+  geom_bar(mapping = aes(x=Seasons, fill="brown")) +
+  facet_wrap(~member_casual) +
+  labs(title = "Cyclistic Trends per Season", x="Customer Type", y="Count")
+```
+
+Identify which bike usage by both cathegory.
+```{r eval=FALSE}
+bike_type_df <- season_df %>%
+  select(rideable_type, Months) %>%
+  group_by(Months, rideable_type) %>%
+  count() %>%
+  arrange()
+```
+```{r eval=FALSE}
+head(bike_type_df)
+```
+
+```{r eval=FALSE}
+ggplot(data = season_df) +
+  geom_bar(mapping = aes(x=rideable_type, fill=rideable_type)) +
+  facet_wrap(~member_casual) +
+  labs(title = "Bike Type per Month", x="Bike Type", y="Count")
+```
+
+Identify which user has the farthest mileage on each month.
+```{r eval=FALSE}
+distance_df <- data_months_df %>%
+  group_by(
+    member_casual, Months
+  ) %>%
+  summarize(
+    n_trip_month=n(),
+    avg_duration_month=mean(ride_distance),
+    total_duration_month=sum(ride_distance)
+  )
+```
+```{r eval=FALSE}
+head(distance_df)
+```
+
+Now try to find average, minimum and maximum ride_distance from each group of member.
+```{r eval=FALSE}
+summary_ride <- cyclistic_df %>%
+  group_by(member_casual) %>%
+  summarize(number_of_rides=n(),
+            ride_average=mean(ride_duration),
+            distance_average=mean(ride_distance),
+            ride_min=min(ride_duration),
+            ride_max=max(ride_duration))
+```
+```{r eval=FALSE}
+head(summary_ride)
+```
+
+Export some dataframe into local storage as dataset for further analysis and visualization purpose.
+```{r eval=FALSE}
+fwrite(season_df, "cyclistic_clean_data.csv")
+fwrite(bike_type_df, "bike_type.csv")
+fwrite(bicycles, "bike_type_member.csv")
+fwrite(day_df, "day_of_week.csv")
+fwrite(member_df, "total_user.csv")
+fwrite(month_df, "ride_by_month.csv")
+fwrite(summary_ride, "summary_ride.csv")
+fwrite(distance_df, "ride_length_summary.csv")
+
+```
+
+### Share
+
+After doing analysis and gaining some insights about data, create visualizations to share findings, to answer business questions. I visualized the findings using spreadsheet tools and listed them as follow.
+
+##### Total User by number on each category
+![cyclistic has 2,587,853 more annual members than casual bikers with 1,677,058 user](total_member.png)
+
+##### Cyclistic Users per Day
+![viz](n_day.png)
+
+##### Cyclistic Users per Month
+![viz](n_month.png)
+
+##### Cyclistic Users per Season
+![viz](n_season.png)
+
+##### Users Average Duration per Month
+![viz](average_duration.png)
+
+##### Monthly Total Usage
+![viz](total_usage.png)
+
+##### Most Used Bike Type
+![viz](bike_type_member.png)
+
+##### Number Bike Types Used in a Year
+![viz](bike_type_yearly.png)
+
+### Findings
+
+After going through all the analysis processes and based on the visualization we got, now we're down to share the key findings:
+
+* With total 4,264,911 user for the last 12 months (from Oct 2021 to Sep 2022), Cyclistic has reached number of annual member with 2,587,853.
+
+* Casual riders mostly used the bicycle on weekends, meanwhile annual members tend to use it on weekdays (tuesday-thursday).
+
+* June to August are the months or periods where bicycle usage is the highest for the two categories of members. Same as summer as a high season for and autumn comes second.
+
+* Both member and casual user used and utilized bicycle and have reached the highest distance in the same periods, that is around June to August.
+
+* Annual member never used docked-bikes, both of them mostly utilize the same type, that is classic-bike and become the highest type used by membes.
+
+### Recommendation
+
+Based on the findings by through all the process, now we put 3 recommendation to be consider:
+
+1. By looking at the trend that occurs when the data is grouped into 4 seasons, it is known that both categories of members mostly use bicycles in the summer (June to August). In this case, it can be considered to carry out marketing campaigns for both membership segments.
+
+2. Also Data shown that casual member has reached same distance with annual members but has reached more time duration when utilizing than annual member. This indicates that casual members have the potential to become annual members if we do effective marketing that can influence them, like giving a cashback or a day free ride for next order.
+
+3. From the data above it shows that casual members utilize all three types of bicycles and tend to use them on weekends. To influence them, consider doing a monthly package/half-package promotion which is more economical by becoming an annual member, with that they will get benefit as well as annual member from using the service.
+
